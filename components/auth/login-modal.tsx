@@ -1,14 +1,14 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Eye, EyeOff, Music, AlertCircle } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
+import { Eye, EyeOff, Music } from "lucide-react"
 
 interface LoginModalProps {
   onClose: () => void
@@ -16,23 +16,18 @@ interface LoginModalProps {
   onLogin: (email: string, password: string) => void
 }
 
-export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
+export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const { login, loading } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-
-    try {
-      await login(email, password)
-      onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
-    }
+    setIsLoading(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
+    onLogin(email, password)
+    setIsLoading(false)
   }
 
   return (
@@ -47,13 +42,6 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            )}
-
             <div>
               <Label htmlFor="email" className="text-white">
                 Email
@@ -94,12 +82,33 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
               </div>
             </div>
 
+            {/* Demo Accounts Info */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+              <h4 className="text-blue-300 font-medium mb-2">🎵 Demo Accounts</h4>
+              <div className="space-y-2 text-sm">
+                <div className="text-blue-200">
+                  <strong>Free Account:</strong>
+                  <br />
+                  Email: test@example.com
+                  <br />
+                  Password: password123
+                </div>
+                <div className="text-blue-200">
+                  <strong>Premium Account:</strong>
+                  <br />
+                  Email: premium@example.com
+                  <br />
+                  Password: premium123
+                </div>
+              </div>
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-green-500 hover:bg-green-600 text-black font-medium"
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 

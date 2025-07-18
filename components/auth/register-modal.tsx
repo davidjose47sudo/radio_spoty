@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Eye, EyeOff, Music, AlertCircle } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Eye, EyeOff, Music } from "lucide-react"
 
 interface RegisterModalProps {
   onClose: () => void
@@ -16,7 +17,7 @@ interface RegisterModalProps {
   onRegister: (userData: any) => void
 }
 
-export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) {
+export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: RegisterModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,29 +25,24 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
     confirmPassword: "",
   })
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const { register, loading } = useAuth()
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords don't match")
+      alert("Passwords don't match")
+      return
+    }
+    if (!acceptTerms) {
+      alert("Please accept the terms and conditions")
       return
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long")
-      return
-    }
-
-    try {
-      await register(formData.email, formData.password, formData.name)
-      onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed")
-    }
+    setIsLoading(true)
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    onRegister(formData)
+    setIsLoading(false)
   }
 
   return (
@@ -61,13 +57,6 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            )}
-
             <div>
               <Label htmlFor="name" className="text-white">
                 Full Name
@@ -136,12 +125,20 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
               />
             </div>
 
+            <div className="flex items-center space-x-2">
+              <Checkbox id="terms" checked={acceptTerms} onCheckedChange={setAcceptTerms} className="border-gray-600" />
+              <Label htmlFor="terms" className="text-sm text-gray-400">
+                I agree to the <span className="text-green-400 hover:underline cursor-pointer">Terms of Service</span>{" "}
+                and <span className="text-green-400 hover:underline cursor-pointer">Privacy Policy</span>
+              </Label>
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-green-500 hover:bg-green-600 text-black font-medium"
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? "Creating account..." : "Create Account"}
+              {isLoading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
 

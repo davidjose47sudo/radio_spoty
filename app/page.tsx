@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useRef, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,19 +45,19 @@ import { VoiceControlModal } from "@/components/voice/voice-control-modal"
 import { SettingsPage } from "@/components/settings/settings-page"
 import { FriendsManager } from "@/components/friends/friends-manager"
 
-export default function App() {
+export default function ModernRadioPlatform() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolume] = useState([75])
   const [currentTime, setCurrentTime] = useState([45])
   const [menuPosition, setMenuPosition] = useState({ x: 50, y: 200 })
   const [isDragging, setIsDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [selectedStation, setSelectedStation] = useState<any>(null)
+  const [selectedStation, setSelectedStation] = useState(null)
   const [showRightPanel, setShowRightPanel] = useState(false)
   const [showVoiceControl, setShowVoiceControl] = useState(false)
 
   // Auth and user state
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState(null)
   const [showLogin, setShowLogin] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -67,9 +68,9 @@ export default function App() {
   const [showTrends, setShowTrends] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [showArtistPage, setShowArtistPage] = useState(false)
-  const [selectedArtist, setSelectedArtist] = useState<any>(null)
+  const [selectedArtist, setSelectedArtist] = useState(null)
   const [showStationPage, setShowStationPage] = useState(false)
-  const [selectedStationDetail, setSelectedStationDetail] = useState<any>(null)
+  const [selectedStationDetail, setSelectedStationDetail] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
 
@@ -148,7 +149,7 @@ export default function App() {
   }
 
   const handleOnboardingComplete = (preferences: any) => {
-    setUser((prev: any) => ({ ...prev, preferences }))
+    setUser((prev) => ({ ...prev, preferences }))
     setShowOnboarding(false)
   }
 
@@ -171,14 +172,14 @@ export default function App() {
   }
 
   const handlePlanSelection = (planId: string, billing: string) => {
-    setUser((prev: any) => ({ ...prev, plan: planId }))
+    setUser((prev) => ({ ...prev, plan: planId }))
     setShowPlanSelection(false)
     if (planId !== "free") {
       setShowOnboarding(true) // Show onboarding after plan selection
     }
   }
 
-  const handleStationSelect = (station: any) => {
+  const handleStationSelect = (station) => {
     setSelectedStation(station)
     setShowRightPanel(true)
   }
@@ -188,12 +189,12 @@ export default function App() {
     setSelectedStation(null)
   }
 
-  const handleArtistSelect = (artist: any) => {
+  const handleArtistSelect = (artist) => {
     setSelectedArtist(artist)
     setShowArtistPage(true)
   }
 
-  const handleStationDetailSelect = (station: any) => {
+  const handleStationDetailSelect = (station) => {
     setSelectedStationDetail(station)
     setShowStationPage(true)
   }
@@ -343,7 +344,7 @@ export default function App() {
         <TrendsPage
           onClose={() => setShowTrends(false)}
           onStationSelect={handleStationDetailSelect}
-          onJamSelect={(jam: any) => {
+          onJamSelect={(jam) => {
             setShowTrends(false)
             setShowJams(true)
           }}
@@ -355,7 +356,7 @@ export default function App() {
           onClose={() => setShowSearch(false)}
           onArtistSelect={handleArtistSelect}
           onStationSelect={handleStationDetailSelect}
-          onJamSelect={(jam: any) => {
+          onJamSelect={(jam) => {
             setShowSearch(false)
             setShowJams(true)
           }}
