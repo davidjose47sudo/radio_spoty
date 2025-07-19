@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Music } from "lucide-react"
+import { Eye, EyeOff, Music, AlertCircle, CheckCircle } from "lucide-react"
+import { signUp } from "@/lib/auth"
 
 interface RegisterModalProps {
   onClose: () => void
   onSwitchToLogin: () => void
-  onRegister: (userData: any) => void
+  onRegister: () => void
 }
 
 export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: RegisterModalProps) {
@@ -27,39 +28,85 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
   const [showPassword, setShowPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match")
+      setError("Las contraseñas no coinciden")
       return
     }
     if (!acceptTerms) {
-      alert("Please accept the terms and conditions")
+      setError("Debes aceptar los términos y condiciones")
+      return
+    }
+    if (formData.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres")
       return
     }
 
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    onRegister(formData)
-    setIsLoading(false)
+
+    try {
+      const { data, error } = await signUp(formData.email, formData.password, formData.name)
+
+      if (error) {
+        setError("Error al crear la cuenta. El email podría estar en uso.")
+        return
+      }
+
+      if (data?.user) {
+        setSuccess(true)
+        setTimeout(() => {
+          onRegister()
+        }, 2000)
+      }
+    } catch (err) {
+      setError("Error al crear la cuenta. Intenta nuevamente.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (success) {
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <Card className="w-full max-w-md bg-gray-900/95 border-gray-700 backdrop-blur-md">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">¡Cuenta creada!</h2>
+            <p className="text-gray-400 mb-4">
+              Tu cuenta ha sido creada exitosamente. Serás redirigido en unos segundos.
+            </p>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="bg-green-500 h-2 rounded-full animate-pulse" style={{ width: "100%" }}></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <Card className="w-full max-w-md bg-gray-900 border-gray-700">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <Card className="w-full max-w-md bg-gray-900/95 border-gray-700 backdrop-blur-md">
         <CardHeader className="text-center">
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Music className="w-6 h-6 text-black" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Join AuraRadio</CardTitle>
-          <p className="text-gray-400">Create your account and start listening</p>
+          <CardTitle className="text-2xl font-bold text-white">Únete a AuraRadio</CardTitle>
+          <p className="text-gray-400">Crea tu cuenta y comienza a escuchar</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="name" className="text-white">
-                Full Name
+                Nombre Completo
               </Label>
               <Input
                 id="name"
@@ -67,7 +114,7 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
-                placeholder="Enter your full name"
+                placeholder="Ingresa tu nombre completo"
                 required
               />
             </div>
@@ -81,13 +128,13 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
-                placeholder="Enter your email"
+                placeholder="Ingresa tu email"
                 required
               />
             </div>
             <div>
               <Label htmlFor="password" className="text-white">
-                Password
+                Contraseña
               </Label>
               <div className="relative">
                 <Input
@@ -96,7 +143,7 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="bg-gray-800 border-gray-600 text-white pr-10"
-                  placeholder="Create a password"
+                  placeholder="Crea una contraseña"
                   required
                 />
                 <Button
@@ -112,7 +159,7 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
             </div>
             <div>
               <Label htmlFor="confirmPassword" className="text-white">
-                Confirm Password
+                Confirmar Contraseña
               </Label>
               <Input
                 id="confirmPassword"
@@ -120,7 +167,7 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 className="bg-gray-800 border-gray-600 text-white"
-                placeholder="Confirm your password"
+                placeholder="Confirma tu contraseña"
                 required
               />
             </div>
@@ -128,35 +175,42 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
             <div className="flex items-center space-x-2">
               <Checkbox id="terms" checked={acceptTerms} onCheckedChange={setAcceptTerms} className="border-gray-600" />
               <Label htmlFor="terms" className="text-sm text-gray-400">
-                I agree to the <span className="text-green-400 hover:underline cursor-pointer">Terms of Service</span>{" "}
-                and <span className="text-green-400 hover:underline cursor-pointer">Privacy Policy</span>
+                Acepto los <span className="text-green-400 hover:underline cursor-pointer">Términos de Servicio</span> y
+                la <span className="text-green-400 hover:underline cursor-pointer">Política de Privacidad</span>
               </Label>
             </div>
+
+            {error && (
+              <div className="flex items-center space-x-2 text-red-400 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
+              </div>
+            )}
 
             <Button
               type="submit"
               className="w-full bg-green-500 hover:bg-green-600 text-black font-medium"
               disabled={isLoading}
             >
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
             </Button>
           </form>
 
           <Separator className="bg-gray-700" />
 
           <div className="text-center">
-            <p className="text-gray-400 mb-4">Already have an account?</p>
+            <p className="text-gray-400 mb-4">¿Ya tienes una cuenta?</p>
             <Button
               variant="outline"
               className="w-full border-gray-600 text-white hover:bg-gray-800 bg-transparent"
               onClick={onSwitchToLogin}
             >
-              Sign In
+              Iniciar Sesión
             </Button>
           </div>
 
           <Button variant="ghost" className="w-full text-gray-400 hover:text-white" onClick={onClose}>
-            Continue as Guest
+            Continuar como invitado
           </Button>
         </CardContent>
       </Card>

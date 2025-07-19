@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { getCurrentUser, incrementPlayCount, hasEnoughPlaysForRecommendations } from "@/lib/auth"
 
-// Simulación de API propia para música
 export interface Track {
   id: string
   title: string
@@ -12,6 +12,7 @@ export interface Track {
   genre: string
   coverUrl: string
   audioUrl: string
+  play_count?: number
 }
 
 export interface Station {
@@ -19,121 +20,126 @@ export interface Station {
   name: string
   description: string
   genre: string
-  currentTrack: Track
+  currentTrack?: Track
   listeners: number
   isLive: boolean
   tracks: Track[]
 }
 
-// Hook personalizado para manejar la API de música
+export interface Playlist {
+  id: string
+  name: string
+  description: string
+  tracks: Track[]
+  coverUrl: string
+  created_by: string
+}
+
 export function useMusicAPI() {
   const [stations, setStations] = useState<Station[]>([])
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  // Simulación de datos de la API
-  const mockTracks: Track[] = [
-    {
-      id: "1",
-      title: "Midnight City",
-      artist: "M83",
-      album: "Hurry Up, We're Dreaming",
-      duration: 243,
-      genre: "Electronic",
-      coverUrl: "/placeholder.svg?height=300&width=300",
-      audioUrl: "/audio/midnight-city.mp3",
-    },
-    {
-      id: "2",
-      title: "Strobe",
-      artist: "Deadmau5",
-      album: "For Lack of a Better Name",
-      duration: 634,
-      genre: "Electronic",
-      coverUrl: "/placeholder.svg?height=300&width=300",
-      audioUrl: "/audio/strobe.mp3",
-    },
-    {
-      id: "3",
-      title: "Breathe Me",
-      artist: "Sia",
-      album: "Colour the Small One",
-      duration: 273,
-      genre: "Alternative",
-      coverUrl: "/placeholder.svg?height=300&width=300",
-      audioUrl: "/audio/breathe-me.mp3",
-    },
-  ]
-
-  const mockStations: Station[] = [
-    {
-      id: "station-1",
-      name: "Global Hits FM",
-      description: "The biggest hits from around the world",
-      genre: "Pop",
-      currentTrack: mockTracks[0],
-      listeners: 45200,
-      isLive: true,
-      tracks: mockTracks,
-    },
-    {
-      id: "station-2",
-      name: "Electronic Pulse",
-      description: "Electronic beats and ambient sounds",
-      genre: "Electronic",
-      currentTrack: mockTracks[1],
-      listeners: 28900,
-      isLive: true,
-      tracks: mockTracks,
-    },
-    {
-      id: "station-3",
-      name: "Indie Discovery",
-      description: "Discover new indie and alternative artists",
-      genre: "Alternative",
-      currentTrack: mockTracks[2],
-      listeners: 15200,
-      isLive: true,
-      tracks: mockTracks,
-    },
-  ]
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    // Simular carga de API
-    const loadData = async () => {
-      setIsLoading(true)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setStations(mockStations)
-      setCurrentTrack(mockTracks[0])
-      setIsLoading(false)
-    }
-
     loadData()
+    loadUser()
   }, [])
 
-  const playTrack = (track: Track) => {
+  const loadUser = async () => {
+    const currentUser = await getCurrentUser()
+    setUser(currentUser)
+  }
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true)
+      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate loading
+
+      const currentUser = await getCurrentUser()
+
+      // Only show content if user has enough plays or is new
+      if (currentUser && hasEnoughPlaysForRecommendations(currentUser)) {
+        // Load personalized content based on user's listening history
+        setStations([
+          {
+            id: "station-1",
+            name: "Your Daily Mix",
+            description: "Based on your listening history",
+            genre: "Mixed",
+            listeners: 1,
+            isLive: true,
+            tracks: [],
+          },
+          {
+            id: "station-2",
+            name: "Discover Weekly",
+            description: "New music picked for you",
+            genre: "Discovery",
+            listeners: 1,
+            isLive: true,
+            tracks: [],
+          },
+        ])
+
+        setPlaylists([
+          {
+            id: "playlist-1",
+            name: "Liked Songs",
+            description: "Your favorite tracks",
+            tracks: [],
+            coverUrl: "/placeholder.svg?height=200&width=200",
+            created_by: currentUser.id,
+          },
+        ])
+      } else {
+        // Show empty state for new users
+        setStations([])
+        setPlaylists([])
+      }
+    } catch (error) {
+      console.error("Error loading data:", error)
+      setStations([])
+      setPlaylists([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const playTrack = async (track: Track) => {
     setCurrentTrack(track)
+
+    // Increment play count
+    if (user) {
+      await incrementPlayCount(user.id)
+      // Reload user data to update play count
+      await loadUser()
+    }
   }
 
   const getRecommendations = (userId: string) => {
-    // Simulación de recomendaciones basadas en IA
-    return mockTracks.slice(0, 3)
+    if (!hasEnoughPlaysForRecommendations(user)) {
+      return []
+    }
+    // Return recommendations based on user's listening history
+    return []
   }
 
   const searchTracks = (query: string) => {
-    return mockTracks.filter(
-      (track) =>
-        track.title.toLowerCase().includes(query.toLowerCase()) ||
-        track.artist.toLowerCase().includes(query.toLowerCase()),
-    )
+    // Search implementation
+    return []
   }
 
   return {
     stations,
+    playlists,
     currentTrack,
     isLoading,
+    user,
     playTrack,
     getRecommendations,
     searchTracks,
+    hasEnoughPlays: hasEnoughPlaysForRecommendations(user),
   }
 }

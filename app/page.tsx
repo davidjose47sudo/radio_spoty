@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import {
   Play,
   Pause,
@@ -18,8 +18,15 @@ import {
   Settings,
   User,
   Search,
-  Mic,
-  Zap,
+  Library,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  Music,
+  TrendingUp,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react"
 
 // Import components
@@ -29,21 +36,20 @@ import { MusicPreferences } from "@/components/onboarding/music-preferences"
 import { ProfilePage } from "@/components/profile/profile-page"
 import { SubscriptionPlans } from "@/components/subscription/subscription-plans"
 import { TrendsPage } from "@/components/trends/trends-page"
-import { ArtistPage } from "@/components/artist/artist-page"
-import { StationPage } from "@/components/station/station-page"
 import { SearchPage } from "@/components/search/search-page"
 import { JamsPage } from "@/components/jams/jams-page"
 import { FriendsManager } from "@/components/friends/friends-manager"
 import { SettingsPage } from "@/components/settings/settings-page"
 import VoiceControlModal from "@/components/voice/voice-control-modal"
 import { AdminDashboard } from "@/components/admin/admin-dashboard"
+import { FloatingControlPanel } from "@/components/floating-control-panel"
 
 // Import hooks and utilities
 import { useMusicAPI } from "@/components/music-api"
 import { AIInsights } from "@/components/ai-features"
-import { getCurrentUser, type AuthUser } from "@/lib/auth"
+import { getCurrentUser, type AuthUser, isAdmin } from "@/lib/auth"
 
-export default function Home() {
+export default function AuraRadio() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [showLogin, setShowLogin] = useState(false)
@@ -52,6 +58,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState("home")
   const [showVoiceControl, setShowVoiceControl] = useState(false)
   const [showAdminDashboard, setShowAdminDashboard] = useState(false)
+  const [showRightPanel, setShowRightPanel] = useState(true)
 
   // Music player state
   const [isPlaying, setIsPlaying] = useState(false)
@@ -63,10 +70,15 @@ export default function Home() {
   const [repeatMode, setRepeatMode] = useState<"off" | "one" | "all">("off")
 
   // Use music API hook
-  const { stations, currentTrack, isLoading: musicLoading, searchTracks, getRecommendations } = useMusicAPI()
-  
-  // Create tracks from all station tracks for display
-  const tracks = stations.flatMap(station => station.tracks || [])
+  const {
+    stations,
+    playlists,
+    currentTrack,
+    isLoading: musicLoading,
+    user: musicUser,
+    hasEnoughPlays,
+    playTrack,
+  } = useMusicAPI()
 
   useEffect(() => {
     checkAuth()
@@ -104,15 +116,8 @@ export default function Home() {
     checkAuth()
   }
 
-  const playStation = (station: any) => {
-    setCurrentStation(station)
-    if (station.songs && station.songs.length > 0) {
-      setCurrentSong(station.songs[0])
-      setIsPlaying(true)
-    }
-  }
-
-  const playTrack = (track: any) => {
+  const handlePlayTrack = async (track: any) => {
+    await playTrack(track)
     setCurrentSong(track)
     setIsPlaying(true)
   }
@@ -122,19 +127,11 @@ export default function Home() {
   }
 
   const nextTrack = () => {
-    if (currentStation?.songs) {
-      const currentIndex = currentStation.songs.findIndex((s: any) => s.id === currentSong?.id)
-      const nextIndex = (currentIndex + 1) % currentStation.songs.length
-      setCurrentSong(currentStation.songs[nextIndex])
-    }
+    // Implementation for next track
   }
 
   const previousTrack = () => {
-    if (currentStation?.songs) {
-      const currentIndex = currentStation.songs.findIndex((s: any) => s.id === currentSong?.id)
-      const prevIndex = currentIndex > 0 ? currentIndex - 1 : currentStation.songs.length - 1
-      setCurrentSong(currentStation.songs[prevIndex])
-    }
+    // Implementation for previous track
   }
 
   const formatTime = (seconds: number) => {
@@ -145,8 +142,14 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading AuraRadio...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Music className="w-8 h-8 text-black" />
+          </div>
+          <div className="text-white text-xl font-semibold mb-2">Cargando AuraRadio...</div>
+          <div className="text-gray-400">Preparando tu experiencia musical</div>
+        </div>
       </div>
     )
   }
@@ -155,221 +158,89 @@ export default function Home() {
   const renderCurrentView = () => {
     switch (currentView) {
       case "profile":
-        return <ProfilePage user={user} onClose={() => setCurrentView("home")} onLogout={() => {
-          setUser(null)
-          setCurrentView("home")
-        }} />
+        return (
+          <ProfilePage
+            user={user}
+            onClose={() => setCurrentView("home")}
+            onLogout={() => {
+              setUser(null)
+              setCurrentView("home")
+            }}
+          />
+        )
       case "subscription":
         return <SubscriptionPlans onClose={() => setCurrentView("home")} />
       case "trends":
-        return <TrendsPage 
-          onClose={() => setCurrentView("home")} 
-          onStationSelect={(stationId) => {
-            setCurrentView("station")
-          }}
-          onJamSelect={(jamId) => {
-            setCurrentView("jams")
-          }}
-        />
-      case "artist":
-        return <ArtistPage 
-          artist={stations[0]?.tracks?.[0] ? { 
-            id: "sample-artist", 
-            name: stations[0].tracks[0].artist,
-            bio: "Sample artist biography",
-            genre: stations[0].tracks[0].genre,
-            followers: 1000,
-            isFollowing: false,
-            topTracks: stations[0].tracks.slice(0, 5),
-            albums: [],
-            similarArtists: []
-          } : null} 
-          onClose={() => setCurrentView("home")} 
-        />
-      case "station":
-        return <StationPage 
-          station={stations[0] || null} 
-          onClose={() => setCurrentView("home")} 
-        />
+        return (
+          <TrendsPage
+            onClose={() => setCurrentView("home")}
+            onStationSelect={(stationId) => setCurrentView("station")}
+            onJamSelect={(jamId) => setCurrentView("jams")}
+          />
+        )
       case "search":
-        return <SearchPage 
-          onClose={() => setCurrentView("home")} 
-          onArtistSelect={(artistId) => setCurrentView("artist")}
-          onStationSelect={(stationId) => setCurrentView("station")}
-          onJamSelect={(jamId) => setCurrentView("jams")}
-        />
+        return (
+          <SearchPage
+            onClose={() => setCurrentView("home")}
+            onArtistSelect={(artistId) => setCurrentView("artist")}
+            onStationSelect={(stationId) => setCurrentView("station")}
+            onJamSelect={(jamId) => setCurrentView("jams")}
+          />
+        )
       case "jams":
         return <JamsPage onClose={() => setCurrentView("home")} />
       case "friends":
         return <FriendsManager user={user} onClose={() => setCurrentView("home")} />
       case "settings":
-        return <SettingsPage 
-          user={user} 
-          onClose={() => setCurrentView("home")} 
-          onUpdateSettings={() => {}} 
-          isAuraEnabled={true} 
-          onToggleAura={() => {}} 
-        />
+        return (
+          <SettingsPage
+            user={user}
+            onClose={() => setCurrentView("home")}
+            onUpdateSettings={() => {}}
+            isAuraEnabled={true}
+            onToggleAura={() => {}}
+          />
+        )
       default:
         return renderHomeView()
     }
   }
 
   const renderHomeView = () => (
-    <div className="flex-1 overflow-y-auto p-6 pb-32">
-      {/* Hero Section */}
-      <div className="mb-8">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-8 text-white">
-          <h1 className="text-4xl font-bold mb-4">Welcome to AuraRadio</h1>
-          <p className="text-xl mb-6">Discover your perfect sound with AI-powered radio stations</p>
-          <div className="flex items-center space-x-4">
-            <Button onClick={() => setShowVoiceControl(true)} className="bg-white text-purple-600 hover:bg-gray-100">
-              <Mic className="w-4 h-4 mr-2" />
-              Voice Control
-            </Button>
-            <Button
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-purple-600 bg-transparent"
-            >
-              <Zap className="w-4 h-4 mr-2" />
-              Generate AI Radio
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Insights */}
-      {user && <AIInsights />}
-
-      {/* Featured Stations */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-white">Featured Stations</h2>
-          <Button variant="ghost" className="text-gray-400 hover:text-white">
-            View All
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {stations.slice(0, 6).map((station) => (
-            <Card
-              key={station.id}
-              className="bg-gray-800 border-gray-700 hover:bg-gray-700 transition-colors cursor-pointer"
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                    <Radio className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-white font-semibold">{station.name}</h3>
-                    <p className="text-gray-400 text-sm">{station.description}</p>
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {station.genre}
-                      </Badge>
-                      <span className="text-gray-500 text-xs">{station.listeners} listeners</span>
-                    </div>
-                  </div>
-                  <Button size="icon" onClick={() => playStation(station)} className="bg-green-500 hover:bg-green-600">
-                    <Play className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Popular Tracks */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-white">Popular Tracks</h2>
-          <Button variant="ghost" className="text-gray-400 hover:text-white">
-            View All
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {tracks.slice(0, 10).map((track: any, index: number) => (
-            <div
-              key={index}
-              className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
-              onClick={() => playTrack(track)}
-            >
-              <div className="w-8 text-gray-400 text-sm font-medium">{index + 1}</div>
-              <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
-                <Play className="w-5 h-5 text-gray-400" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-white font-medium">{track.title}</h4>
-                <p className="text-gray-400 text-sm">{track.artist}</p>
-              </div>
-              <div className="text-gray-400 text-sm">{formatTime(track.duration)}</div>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <Heart className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-gray-800">
+    <div className="flex-1 overflow-y-auto">
+      {/* Top Bar */}
+      <div className="sticky top-0 bg-gray-900/80 backdrop-blur-md p-4 flex items-center justify-between z-10 border-b border-gray-800/50">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <Radio className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold">AuraRadio</span>
-          </div>
+          <Button variant="ghost" size="icon" className="w-8 h-8 bg-black/40 text-gray-400 hover:text-white">
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="w-8 h-8 bg-black/40 text-gray-400 hover:text-white">
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
 
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
-            <Button
-              variant="ghost"
-              onClick={() => setCurrentView("home")}
-              className={currentView === "home" ? "text-white" : "text-gray-400 hover:text-white"}
-            >
-              Home
-            </Button>
-            <Button
-              variant="ghost"
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Buscar canciones, artistas..."
+              className="pl-10 w-80 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-400 focus:bg-gray-700"
               onClick={() => setCurrentView("search")}
-              className={currentView === "search" ? "text-white" : "text-gray-400 hover:text-white"}
-            >
-              <Search className="w-4 h-4 mr-2" />
-              Search
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setCurrentView("trends")}
-              className={currentView === "trends" ? "text-white" : "text-gray-400 hover:text-white"}
-            >
-              Trends
-            </Button>
-            {user && (
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentView("jams")}
-                className={currentView === "jams" ? "text-white" : "text-gray-400 hover:text-white"}
-              >
-                Jams
-              </Button>
-            )}
-          </nav>
-        </div>
+            />
+          </div>
 
-        {/* User Actions */}
-        <div className="flex items-center space-x-4">
           {user ? (
             <>
-              {user.role === "admin" && (
+              {user.subscription_plan === "free" && (
+                <Button
+                  className="bg-white text-black hover:bg-gray-200 font-medium px-6"
+                  onClick={() => setCurrentView("subscription")}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Mejorar
+                </Button>
+              )}
+              {isAdmin(user) && (
                 <Button
                   variant="outline"
                   onClick={() => setShowAdminDashboard(true)}
@@ -385,86 +256,395 @@ export default function Home() {
                 className="text-gray-400 hover:text-white"
               >
                 <User className="w-4 h-4 mr-2" />
-                {user.full_name || user.email}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentView("settings")}
-                className="text-gray-400 hover:text-white"
-              >
-                <Settings className="w-4 h-4" />
+                {user.full_name || user.email.split("@")[0]}
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" onClick={() => setShowLogin(true)}>
-                Sign In
+                Iniciar Sesión
               </Button>
-              <Button onClick={() => setShowRegister(true)} className="bg-purple-600 hover:bg-purple-700">
-                Sign Up
+              <Button onClick={() => setShowRegister(true)} className="bg-green-500 hover:bg-green-600 text-black">
+                Registrarse
               </Button>
             </>
           )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowRightPanel(!showRightPanel)}
+            className="text-gray-400 hover:text-white"
+          >
+            {showRightPanel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+          </Button>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex">
-        {/* Sidebar */}
-        {user && (
-          <aside className="w-64 bg-gray-900 border-r border-gray-800 p-4">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-gray-400 text-sm font-medium mb-2">Your Library</h3>
-                <div className="space-y-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setCurrentView("profile")}
-                  >
-                    <User className="w-4 h-4 mr-3" />
-                    Profile
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setCurrentView("friends")}
-                  >
-                    <User className="w-4 h-4 mr-3" />
-                    Friends
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-gray-400 text-sm font-medium mb-2">Quick Access</h3>
-                <div className="space-y-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setCurrentView("subscription")}
-                  >
-                    <Zap className="w-4 h-4 mr-3" />
-                    Upgrade
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </aside>
-        )}
-
-        {/* Main Content Area */}
-        {renderCurrentView()}
       </div>
 
-      {/* Music Player */}
+      {/* Main Content */}
+      <div className="p-6 pb-32">
+        {/* Greeting */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">
+            {user ? `Hola, ${user.full_name?.split(" ")[0] || user.email.split("@")[0]}` : "Bienvenido a AuraRadio"}
+          </h1>
+          <p className="text-gray-400">
+            {user
+              ? "Descubre música personalizada para ti"
+              : "Inicia sesión para obtener recomendaciones personalizadas"}
+          </p>
+        </div>
+
+        {/* Loading State */}
+        {musicLoading && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="bg-gray-800/50 border-gray-700 animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="w-full h-32 bg-gray-700 rounded-lg mb-3"></div>
+                    <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-700 rounded w-2/3"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State for New Users */}
+        {!musicLoading && user && !hasEnoughPlays && (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Music className="w-12 h-12 text-gray-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">¡Comienza tu viaje musical!</h2>
+            <p className="text-gray-400 mb-8 max-w-md mx-auto">
+              Escucha más música para que podamos crear recomendaciones personalizadas para ti. Necesitas al menos 10
+              reproducciones para desbloquear tus radios personalizadas.
+            </p>
+            <div className="flex items-center justify-center space-x-4">
+              <Button onClick={() => setCurrentView("search")} className="bg-green-500 hover:bg-green-600 text-black">
+                <Search className="w-4 h-4 mr-2" />
+                Explorar Música
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentView("trends")}>
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Ver Tendencias
+              </Button>
+            </div>
+            <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg max-w-md mx-auto">
+              <p className="text-blue-300 text-sm">
+                💡 <strong>Tip:</strong> Mientras más escuches, mejores serán nuestras recomendaciones de IA
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Content for Users with Enough Plays */}
+        {!musicLoading && user && hasEnoughPlays && (
+          <div className="space-y-8">
+            {/* AI Insights */}
+            <AIInsights />
+
+            {/* Quick Access */}
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-4">Acceso Rápido</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {playlists.slice(0, 6).map((playlist) => (
+                  <Card
+                    key={playlist.id}
+                    className="bg-gray-800/60 hover:bg-gray-700/60 border-gray-700 cursor-pointer transition-all duration-200 group"
+                  >
+                    <CardContent className="p-0 flex items-center">
+                      <img
+                        src={playlist.coverUrl || "/placeholder.svg"}
+                        alt={playlist.name}
+                        className="w-20 h-20 object-cover rounded-l-lg"
+                      />
+                      <div className="p-4 flex-1">
+                        <p className="text-white font-medium">{playlist.name}</p>
+                      </div>
+                      <div className="pr-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          className="w-12 h-12 bg-green-500 hover:bg-green-400 text-black rounded-full"
+                        >
+                          <Music className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Made For You */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-white">Hecho Para Ti</h2>
+                <Button variant="ghost" className="text-gray-400 hover:text-white">
+                  Ver todo
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {stations.map((station) => (
+                  <Card
+                    key={station.id}
+                    className="bg-gray-800/40 hover:bg-gray-700/40 border-gray-700 cursor-pointer transition-all duration-200 group p-4"
+                  >
+                    <CardContent className="p-0">
+                      <div className="relative mb-4">
+                        <div className="w-full h-48 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                          <Radio className="w-12 h-12 text-white" />
+                        </div>
+                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            size="icon"
+                            className="w-12 h-12 bg-green-500 hover:bg-green-400 text-black rounded-full"
+                          >
+                            <Music className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <h3 className="text-white font-medium mb-1">{station.name}</h3>
+                      <p className="text-gray-400 text-sm">{station.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Guest Content */}
+        {!user && !musicLoading && (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Music className="w-12 h-12 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-4">Descubre tu sonido perfecto</h2>
+            <p className="text-gray-400 mb-8 max-w-lg mx-auto">
+              Únete a AuraRadio y obtén recomendaciones musicales personalizadas con inteligencia artificial
+            </p>
+            <div className="flex items-center justify-center space-x-4">
+              <Button onClick={() => setShowRegister(true)} className="bg-green-500 hover:bg-green-600 text-black px-8">
+                Comenzar Gratis
+              </Button>
+              <Button variant="outline" onClick={() => setShowLogin(true)}>
+                Iniciar Sesión
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex flex-col">
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <div className="w-80 bg-black/50 backdrop-blur-sm border-r border-gray-800/50 flex flex-col">
+          {/* Logo */}
+          <div className="p-6 border-b border-gray-800/50">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                <Music className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold">AuraRadio</span>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex-1 p-6">
+            <nav className="space-y-2 mb-8">
+              <Button
+                variant="ghost"
+                className={`w-full justify-start h-12 ${currentView === "home" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white"}`}
+                onClick={() => setCurrentView("home")}
+              >
+                <Music className="w-5 h-5 mr-3" />
+                Inicio
+              </Button>
+              <Button
+                variant="ghost"
+                className={`w-full justify-start h-12 ${currentView === "search" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white"}`}
+                onClick={() => setCurrentView("search")}
+              >
+                <Search className="w-5 h-5 mr-3" />
+                Buscar
+              </Button>
+              <Button variant="ghost" className="w-full justify-start h-12 text-gray-400 hover:text-white">
+                <Library className="w-5 h-5 mr-3" />
+                Tu Biblioteca
+              </Button>
+            </nav>
+
+            {/* Your Library */}
+            {user && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-400 font-medium">Tu Biblioteca</h3>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-400 hover:text-white">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {playlists.map((playlist) => (
+                    <div
+                      key={playlist.id}
+                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800/50 cursor-pointer"
+                    >
+                      <img
+                        src={playlist.coverUrl || "/placeholder.svg"}
+                        alt={playlist.name}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{playlist.name}</p>
+                        <p className="text-gray-400 text-sm truncate">{playlist.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        {renderCurrentView()}
+
+        {/* Right Panel */}
+        {showRightPanel && (
+          <div className="w-80 bg-black/50 backdrop-blur-sm border-l border-gray-800/50 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white">Reproduciendo</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowRightPanel(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <PanelRightClose className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {currentSong ? (
+              <div className="space-y-6">
+                {/* Current Track */}
+                <div className="text-center">
+                  <div className="w-48 h-48 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                    <Music className="w-16 h-16 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">{currentSong.title}</h3>
+                  <p className="text-gray-400">{currentSong.artist}</p>
+                </div>
+
+                {/* Controls */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center space-x-4">
+                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                      <Shuffle className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={previousTrack}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <SkipBack className="w-6 h-6" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      onClick={togglePlay}
+                      className="bg-white text-black hover:bg-gray-200 w-12 h-12"
+                    >
+                      {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={nextTrack} className="text-gray-400 hover:text-white">
+                      <SkipForward className="w-6 h-6" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                      <Repeat className="w-5 h-5" />
+                    </Button>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
+                      <span>{formatTime(progress)}</span>
+                      <span>{formatTime(currentSong.duration || 180)}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-1">
+                      <div
+                        className="bg-white rounded-full h-1 transition-all duration-300"
+                        style={{ width: `${(progress / (currentSong.duration || 180)) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Volume */}
+                  <div className="flex items-center space-x-3">
+                    <Volume2 className="w-4 h-4 text-gray-400" />
+                    <div className="flex-1 bg-gray-700 rounded-full h-1">
+                      <div className="bg-white rounded-full h-1" style={{ width: `${volume}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-3">
+                  <Button className="w-full bg-green-500 hover:bg-green-600 text-black">
+                    <Heart className="w-4 h-4 mr-2" />
+                    Me gusta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-gray-600 text-white hover:bg-gray-800 bg-transparent"
+                  >
+                    Añadir a playlist
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Music className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-400">No hay música reproduciéndose</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Floating Control Panel (when right panel is hidden) */}
+      {!showRightPanel && (
+        <FloatingControlPanel
+          isPlaying={isPlaying}
+          onTogglePlay={togglePlay}
+          onShowGrid={() => setCurrentView("trends")}
+          onShowGallery={() => setCurrentView("search")}
+          onShowHome={() => setCurrentView("home")}
+          onShowProfile={() => (user ? setCurrentView("profile") : setShowLogin(true))}
+          onShowSearch={() => setCurrentView("search")}
+          onNext={nextTrack}
+          onPrevious={previousTrack}
+        />
+      )}
+
+      {/* Bottom Player Bar */}
       {currentSong && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 p-4">
+        <div className="sticky bottom-0 bg-black/80 backdrop-blur-md border-t border-gray-800/50 p-4">
           <div className="flex items-center justify-between">
-            {/* Song Info */}
+            {/* Track Info */}
             <div className="flex items-center space-x-4 flex-1">
               <div className="w-14 h-14 bg-gray-700 rounded-lg flex items-center justify-center">
-                <Play className="w-6 h-6 text-gray-400" />
+                <Music className="w-6 h-6 text-gray-400" />
               </div>
               <div>
                 <h4 className="text-white font-medium">{currentSong.title}</h4>
@@ -534,27 +714,23 @@ export default function Home() {
 
       {/* Modals */}
       {showLogin && (
-        <LoginModal 
-          onClose={() => setShowLogin(false)} 
+        <LoginModal
+          onClose={() => setShowLogin(false)}
           onSwitchToRegister={() => {
             setShowLogin(false)
             setShowRegister(true)
           }}
-          onLogin={(email, password) => {
-            handleLogin()
-          }}
+          onLogin={handleLogin}
         />
       )}
       {showRegister && (
-        <RegisterModal 
-          onClose={() => setShowRegister(false)} 
+        <RegisterModal
+          onClose={() => setShowRegister(false)}
           onSwitchToLogin={() => {
             setShowRegister(false)
             setShowLogin(true)
           }}
-          onRegister={(userData) => {
-            handleRegister()
-          }}
+          onRegister={handleRegister}
         />
       )}
       {showOnboarding && <MusicPreferences onComplete={handleOnboardingComplete} />}

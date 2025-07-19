@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Eye, EyeOff, Music } from "lucide-react"
+import { Eye, EyeOff, Music, AlertCircle } from "lucide-react"
+import { signIn, ADMIN_CREDENTIALS, DEMO_CREDENTIALS } from "@/lib/auth"
 
 interface LoginModalProps {
   onClose: () => void
   onSwitchToRegister: () => void
-  onLogin: (email: string, password: string) => void
+  onLogin: () => void
 }
 
 export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalProps) {
@@ -21,24 +22,64 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
-    onLogin(email, password)
-    setIsLoading(false)
+    setError("")
+
+    try {
+      const { data, error } = await signIn(email, password)
+
+      if (error) {
+        setError("Credenciales inválidas. Intenta con las cuentas demo.")
+        return
+      }
+
+      if (data?.user) {
+        onLogin()
+      }
+    } catch (err) {
+      setError("Error al iniciar sesión. Intenta nuevamente.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDemoLogin = async (credentials: { email: string; password: string }) => {
+    setEmail(credentials.email)
+    setPassword(credentials.password)
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const { data, error } = await signIn(credentials.email, credentials.password)
+
+      if (error) {
+        setError("Error con cuenta demo")
+        return
+      }
+
+      if (data?.user) {
+        onLogin()
+      }
+    } catch (err) {
+      setError("Error al iniciar sesión con cuenta demo")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <Card className="w-full max-w-md bg-gray-900 border-gray-700">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <Card className="w-full max-w-md bg-gray-900/95 border-gray-700 backdrop-blur-md">
         <CardHeader className="text-center">
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Music className="w-6 h-6 text-black" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Welcome back</CardTitle>
-          <p className="text-gray-400">Sign in to your AuraRadio account</p>
+          <CardTitle className="text-2xl font-bold text-white">Bienvenido de vuelta</CardTitle>
+          <p className="text-gray-400">Inicia sesión en tu cuenta de AuraRadio</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -52,13 +93,13 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-gray-800 border-gray-600 text-white"
-                placeholder="Enter your email"
+                placeholder="Ingresa tu email"
                 required
               />
             </div>
             <div>
               <Label htmlFor="password" className="text-white">
-                Password
+                Contraseña
               </Label>
               <div className="relative">
                 <Input
@@ -67,7 +108,7 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-gray-800 border-gray-600 text-white pr-10"
-                  placeholder="Enter your password"
+                  placeholder="Ingresa tu contraseña"
                   required
                 />
                 <Button
@@ -82,57 +123,77 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
               </div>
             </div>
 
-            {/* Demo Accounts Info */}
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-              <h4 className="text-blue-300 font-medium mb-2">🎵 Demo Accounts</h4>
-              <div className="space-y-2 text-sm">
-                <div className="text-blue-200">
-                  <strong>Free Account:</strong>
-                  <br />
-                  Email: test@example.com
-                  <br />
-                  Password: password123
-                </div>
-                <div className="text-blue-200">
-                  <strong>Premium Account:</strong>
-                  <br />
-                  Email: premium@example.com
-                  <br />
-                  Password: premium123
-                </div>
+            {error && (
+              <div className="flex items-center space-x-2 text-red-400 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
               </div>
-            </div>
+            )}
 
             <Button
               type="submit"
               className="w-full bg-green-500 hover:bg-green-600 text-black font-medium"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
 
+          {/* Demo Accounts */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+            <h4 className="text-blue-300 font-medium mb-3">🎵 Cuentas Demo</h4>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-transparent"
+                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.free)}
+                disabled={isLoading}
+              >
+                Cuenta Gratuita: {DEMO_CREDENTIALS.free.email}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20 bg-transparent"
+                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.premium)}
+                disabled={isLoading}
+              >
+                Cuenta Premium: {DEMO_CREDENTIALS.premium.email}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs border-red-500/50 text-red-300 hover:bg-red-500/20 bg-transparent"
+                onClick={() => handleDemoLogin(ADMIN_CREDENTIALS)}
+                disabled={isLoading}
+              >
+                Admin: {ADMIN_CREDENTIALS.email}
+              </Button>
+            </div>
+          </div>
+
           <div className="text-center">
             <Button variant="link" className="text-green-400 hover:text-green-300">
-              Forgot password?
+              ¿Olvidaste tu contraseña?
             </Button>
           </div>
 
           <Separator className="bg-gray-700" />
 
           <div className="text-center">
-            <p className="text-gray-400 mb-4">Don't have an account?</p>
+            <p className="text-gray-400 mb-4">¿No tienes una cuenta?</p>
             <Button
               variant="outline"
               className="w-full border-gray-600 text-white hover:bg-gray-800 bg-transparent"
               onClick={onSwitchToRegister}
             >
-              Sign Up
+              Crear Cuenta
             </Button>
           </div>
 
           <Button variant="ghost" className="w-full text-gray-400 hover:text-white" onClick={onClose}>
-            Continue as Guest
+            Continuar como invitado
           </Button>
         </CardContent>
       </Card>

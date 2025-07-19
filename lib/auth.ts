@@ -9,6 +9,8 @@ export interface AuthUser {
   role: "admin" | "premium" | "free"
   subscription_plan: "free" | "premium" | "family"
   subscription_status: "active" | "cancelled" | "expired" | "pending"
+  created_at?: string
+  play_count?: number
 }
 
 export async function signUp(email: string, password: string, fullName?: string) {
@@ -25,13 +27,30 @@ export async function signUp(email: string, password: string, fullName?: string)
 
     if (error) throw error
 
-    // Log the signup event
-    await logGlobalEvent({
-      user_id: data.user?.id,
-      event_type: "auth",
-      action: "user_signup",
-      metadata: { email, has_full_name: !!fullName },
-    })
+    // Create profile in database
+    if (data.user) {
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        email: data.user.email,
+        full_name: fullName,
+        role: "free",
+        subscription_plan: "free",
+        subscription_status: "active",
+        play_count: 0,
+      })
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError)
+      }
+
+      // Log the signup event
+      await logGlobalEvent({
+        user_id: data.user.id,
+        event_type: "auth",
+        action: "user_signup",
+        metadata: { email, has_full_name: !!fullName },
+      })
+    }
 
     return { data, error: null }
   } catch (error) {
@@ -50,12 +69,14 @@ export async function signIn(email: string, password: string) {
     if (error) throw error
 
     // Log the signin event
-    await logGlobalEvent({
-      user_id: data.user?.id,
-      event_type: "auth",
-      action: "user_signin",
-      metadata: { email },
-    })
+    if (data.user) {
+      await logGlobalEvent({
+        user_id: data.user.id,
+        event_type: "auth",
+        action: "user_signin",
+        metadata: { email },
+      })
+    }
 
     return { data, error: null }
   } catch (error) {
@@ -91,12 +112,14 @@ export async function signOut() {
     if (error) throw error
 
     // Log the signout event
-    await logGlobalEvent({
-      user_id: user?.id,
-      event_type: "auth",
-      action: "user_signout",
-      metadata: {},
-    })
+    if (user) {
+      await logGlobalEvent({
+        user_id: user.id,
+        event_type: "auth",
+        action: "user_signout",
+        metadata: {},
+      })
+    }
 
     return { error: null }
   } catch (error) {
@@ -131,6 +154,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       role: profile.role,
       subscription_plan: profile.subscription_plan,
       subscription_status: profile.subscription_status,
+      created_at: profile.created_at,
+      play_count: profile.play_count || 0,
     }
   } catch (error) {
     console.error("Get current user error:", error)
@@ -171,52 +196,45 @@ export async function updateProfile(updates: Partial<AuthUser>) {
   }
 }
 
-export async function resetPassword(email: string) {
+export async function incrementPlayCount(userId: string) {
   try {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+    const { error } = await supabase.rpc("increment_play_count", {
+      user_id: userId,
     })
 
     if (error) throw error
 
-    // Log the password reset event
+    // Log the play event
     await logGlobalEvent({
-      event_type: "auth",
-      action: "password_reset_request",
-      metadata: { email },
-    })
-
-    return { data, error: null }
-  } catch (error) {
-    console.error("Reset password error:", error)
-    return { data: null, error }
-  }
-}
-
-export async function updatePassword(newPassword: string) {
-  try {
-    const user = await getCurrentUser()
-    if (!user) throw new Error("Not authenticated")
-
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
-    })
-
-    if (error) throw error
-
-    // Log the password update event
-    await logGlobalEvent({
-      user_id: user.id,
-      event_type: "auth",
-      action: "password_update",
+      user_id: userId,
+      event_type: "music",
+      action: "track_play",
       metadata: {},
     })
 
-    return { data, error: null }
+    return { error: null }
   } catch (error) {
-    console.error("Update password error:", error)
-    return { data: null, error }
+    console.error("Increment play count error:", error)
+    return { error }
   }
+}
+
+// Demo admin credentials
+export const ADMIN_CREDENTIALS = {
+  email: "admin@auraradio.com",
+  password: "AuraAdmin2024!",
+  role: "admin",
+}
+
+export const DEMO_CREDENTIALS = {
+  free: {
+    email: "demo@auraradio.com",
+    password: "demo123",
+  },
+  premium: {
+    email: "premium@auraradio.com",
+    password: "premium123",
+  },
 }
 
 export function isAdmin(user: AuthUser | null): boolean {
@@ -229,4 +247,8 @@ export function isPremium(user: AuthUser | null): boolean {
 
 export function hasActiveSubscription(user: AuthUser | null): boolean {
   return user?.subscription_status === "active"
+}
+
+export function hasEnoughPlaysForRecommendations(user: AuthUser | null): boolean {
+  return (user?.play_count || 0) >= 10
 }
