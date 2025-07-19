@@ -35,7 +35,7 @@ import { SearchPage } from "@/components/search/search-page"
 import { JamsPage } from "@/components/jams/jams-page"
 import { FriendsManager } from "@/components/friends/friends-manager"
 import { SettingsPage } from "@/components/settings/settings-page"
-import { VoiceControlModal } from "@/components/voice/voice-control-modal"
+import VoiceControlModal from "@/components/voice/voice-control-modal"
 import { AdminDashboard } from "@/components/admin/admin-dashboard"
 
 // Import hooks and utilities
@@ -63,7 +63,10 @@ export default function Home() {
   const [repeatMode, setRepeatMode] = useState<"off" | "one" | "all">("off")
 
   // Use music API hook
-  const { stations, tracks, loading: musicLoading } = useMusicAPI()
+  const { stations, currentTrack, isLoading: musicLoading, searchTracks, getRecommendations } = useMusicAPI()
+  
+  // Create tracks from all station tracks for display
+  const tracks = stations.flatMap(station => station.tracks || [])
 
   useEffect(() => {
     checkAuth()
@@ -152,23 +155,61 @@ export default function Home() {
   const renderCurrentView = () => {
     switch (currentView) {
       case "profile":
-        return <ProfilePage user={user} onClose={() => setCurrentView("home")} />
+        return <ProfilePage user={user} onClose={() => setCurrentView("home")} onLogout={() => {
+          setUser(null)
+          setCurrentView("home")
+        }} />
       case "subscription":
         return <SubscriptionPlans onClose={() => setCurrentView("home")} />
       case "trends":
-        return <TrendsPage onClose={() => setCurrentView("home")} />
+        return <TrendsPage 
+          onClose={() => setCurrentView("home")} 
+          onStationSelect={(stationId) => {
+            setCurrentView("station")
+          }}
+          onJamSelect={(jamId) => {
+            setCurrentView("jams")
+          }}
+        />
       case "artist":
-        return <ArtistPage artistId="sample-artist" onClose={() => setCurrentView("home")} />
+        return <ArtistPage 
+          artist={stations[0]?.tracks?.[0] ? { 
+            id: "sample-artist", 
+            name: stations[0].tracks[0].artist,
+            bio: "Sample artist biography",
+            genre: stations[0].tracks[0].genre,
+            followers: 1000,
+            isFollowing: false,
+            topTracks: stations[0].tracks.slice(0, 5),
+            albums: [],
+            similarArtists: []
+          } : null} 
+          onClose={() => setCurrentView("home")} 
+        />
       case "station":
-        return <StationPage stationId="sample-station" onClose={() => setCurrentView("home")} />
+        return <StationPage 
+          station={stations[0] || null} 
+          onClose={() => setCurrentView("home")} 
+        />
       case "search":
-        return <SearchPage onClose={() => setCurrentView("home")} />
+        return <SearchPage 
+          onClose={() => setCurrentView("home")} 
+          onArtistSelect={(artistId) => setCurrentView("artist")}
+          onStationSelect={(stationId) => setCurrentView("station")}
+          onJamSelect={(jamId) => setCurrentView("jams")}
+        />
       case "jams":
         return <JamsPage onClose={() => setCurrentView("home")} />
       case "friends":
-        return <FriendsManager onClose={() => setCurrentView("home")} />
+        return <FriendsManager user={user} onClose={() => setCurrentView("home")} />
       case "settings":
-        return <SettingsPage onClose={() => setCurrentView("home")} />
+        return <SettingsPage 
+          user={user} 
+          onClose={() => setCurrentView("home")} 
+          onUpdateSettings={() => {}} 
+          isAuraEnabled={true} 
+          onToggleAura={() => {}} 
+        />
       default:
         return renderHomeView()
     }
@@ -198,7 +239,7 @@ export default function Home() {
       </div>
 
       {/* AI Insights */}
-      {user && <AIInsights user={user} />}
+      {user && <AIInsights />}
 
       {/* Featured Stations */}
       <div className="mb-8">
@@ -248,9 +289,9 @@ export default function Home() {
           </Button>
         </div>
         <div className="space-y-2">
-          {tracks.slice(0, 10).map((track, index) => (
+          {tracks.slice(0, 10).map((track: any, index: number) => (
             <div
-              key={track.id}
+              key={index}
               className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
               onClick={() => playTrack(track)}
             >
@@ -492,10 +533,32 @@ export default function Home() {
       )}
 
       {/* Modals */}
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSuccess={handleLogin} />}
-      {showRegister && <RegisterModal onClose={() => setShowRegister(false)} onSuccess={handleRegister} />}
+      {showLogin && (
+        <LoginModal 
+          onClose={() => setShowLogin(false)} 
+          onSwitchToRegister={() => {
+            setShowLogin(false)
+            setShowRegister(true)
+          }}
+          onLogin={(email, password) => {
+            handleLogin()
+          }}
+        />
+      )}
+      {showRegister && (
+        <RegisterModal 
+          onClose={() => setShowRegister(false)} 
+          onSwitchToLogin={() => {
+            setShowRegister(false)
+            setShowLogin(true)
+          }}
+          onRegister={(userData) => {
+            handleRegister()
+          }}
+        />
+      )}
       {showOnboarding && <MusicPreferences onComplete={handleOnboardingComplete} />}
-      {showVoiceControl && <VoiceControlModal onClose={() => setShowVoiceControl(false)} />}
+      {showVoiceControl && <VoiceControlModal />}
       {showAdminDashboard && <AdminDashboard onClose={() => setShowAdminDashboard(false)} />}
     </div>
   )
