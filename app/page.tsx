@@ -47,11 +47,10 @@ import { FloatingControlPanel } from "@/components/floating-control-panel"
 // Import hooks and utilities
 import { useMusicAPI } from "@/components/music-api"
 import { AIInsights } from "@/components/ai-features"
-import { getCurrentUser, type AuthUser, isAdmin } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function AuraRadio() {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isAuthenticated, loading, logout } = useAuth()
   const [showLogin, setShowLogin] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -59,6 +58,7 @@ export default function AuraRadio() {
   const [showVoiceControl, setShowVoiceControl] = useState(false)
   const [showAdminDashboard, setShowAdminDashboard] = useState(false)
   const [showRightPanel, setShowRightPanel] = useState(true)
+  const [rightPanelMode, setRightPanelMode] = useState<"full" | "compact" | "hidden">("full")
 
   // Music player state
   const [isPlaying, setIsPlaying] = useState(false)
@@ -81,39 +81,23 @@ export default function AuraRadio() {
   } = useMusicAPI()
 
   useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      setUser(currentUser)
-
-      // Check if user needs onboarding
-      if (currentUser && !currentUser.full_name) {
-        setShowOnboarding(true)
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error)
-    } finally {
-      setLoading(false)
+    // Check if user needs onboarding
+    if (user && !user.full_name) {
+      setShowOnboarding(true)
     }
-  }
+  }, [user])
 
   const handleLogin = () => {
     setShowLogin(false)
-    checkAuth()
   }
 
   const handleRegister = () => {
     setShowRegister(false)
     setShowOnboarding(true)
-    checkAuth()
   }
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false)
-    checkAuth()
   }
 
   const handlePlayTrack = async (track: any) => {
@@ -163,7 +147,7 @@ export default function AuraRadio() {
             user={user}
             onClose={() => setCurrentView("home")}
             onLogout={() => {
-              setUser(null)
+              logout()
               setCurrentView("home")
             }}
           />
@@ -231,7 +215,7 @@ export default function AuraRadio() {
 
           {user ? (
             <>
-              {user.subscription_plan === "free" && (
+              {user.subscription_plan === "basic" && (
                 <Button
                   className="bg-white text-black hover:bg-gray-200 font-medium px-6"
                   onClick={() => setCurrentView("subscription")}
@@ -240,7 +224,7 @@ export default function AuraRadio() {
                   Mejorar
                 </Button>
               )}
-              {isAdmin(user) && (
+              {user.role === "admin" && (
                 <Button
                   variant="outline"
                   onClick={() => setShowAdminDashboard(true)}
@@ -273,10 +257,11 @@ export default function AuraRadio() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowRightPanel(!showRightPanel)}
+            onClick={toggleRightPanel}
             className="text-gray-400 hover:text-white"
+            title={rightPanelMode === "full" ? "Modo compacto" : rightPanelMode === "compact" ? "Cerrar panel" : "Mostrar panel"}
           >
-            {showRightPanel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+            {rightPanelMode === "hidden" ? <PanelRightOpen className="w-4 h-4" /> : <PanelRightClose className="w-4 h-4" />}
           </Button>
         </div>
       </div>
@@ -441,6 +426,16 @@ export default function AuraRadio() {
     </div>
   )
 
+  const toggleRightPanel = () => {
+    if (rightPanelMode === "full") {
+      setRightPanelMode("compact")
+    } else if (rightPanelMode === "compact") {
+      setRightPanelMode("hidden")
+    } else {
+      setRightPanelMode("full")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex flex-col">
       {/* Main Layout */}
@@ -518,19 +513,22 @@ export default function AuraRadio() {
         {/* Main Content */}
         {renderCurrentView()}
 
-        {/* Right Panel */}
-        {showRightPanel && (
-          <div className="w-80 bg-black/50 backdrop-blur-sm border-l border-gray-800/50 p-6">
+        {/* Right Panel - Full Mode */}
+        {rightPanelMode === "full" && (
+          <div className="w-80 bg-black/50 backdrop-blur-sm border-l border-gray-800/50 p-6 transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">Reproduciendo</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowRightPanel(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <PanelRightClose className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleRightPanel}
+                  className="text-gray-400 hover:text-white"
+                  title="Modo compacto"
+                >
+                  <PanelRightClose className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             {currentSong ? (
@@ -620,21 +618,146 @@ export default function AuraRadio() {
             )}
           </div>
         )}
+
+        {/* Right Panel - Compact Mode */}
+        {rightPanelMode === "compact" && (
+          <div className="w-20 bg-black/50 backdrop-blur-sm border-l border-gray-800/50 p-4 transition-all duration-300 flex flex-col items-center">
+            {/* Toggle Button */}
+            <div className="mb-6">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleRightPanel}
+                className="text-gray-400 hover:text-white w-12 h-12"
+                title="Cerrar panel"
+              >
+                <PanelRightClose className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {currentSong ? (
+              <div className="flex flex-col items-center space-y-6">
+                {/* Compact Track Info */}
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Music className="w-6 h-6 text-white" />
+                </div>
+
+                {/* Vertical Controls */}
+                <div className="flex flex-col items-center space-y-4">
+                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white w-12 h-12">
+                    <Shuffle className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={previousTrack}
+                    className="text-gray-400 hover:text-white w-12 h-12"
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    onClick={togglePlay}
+                    className="bg-white text-black hover:bg-gray-200 w-12 h-12"
+                  >
+                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={nextTrack}
+                    className="text-gray-400 hover:text-white w-12 h-12"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white w-12 h-12">
+                    <Repeat className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Vertical Volume Control */}
+                <div className="flex flex-col items-center space-y-2 h-32">
+                  <Volume2 className="w-4 h-4 text-gray-400" />
+                  <div className="w-1 flex-1 bg-gray-700 rounded-full relative">
+                    <div
+                      className="w-1 bg-white rounded-full absolute bottom-0"
+                      style={{ height: `${volume}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Like Button */}
+                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white w-12 h-12">
+                  <Heart className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Music className="w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Floating Control Panel (when right panel is hidden) */}
-      {!showRightPanel && (
-        <FloatingControlPanel
-          isPlaying={isPlaying}
-          onTogglePlay={togglePlay}
-          onShowGrid={() => setCurrentView("trends")}
-          onShowGallery={() => setCurrentView("search")}
-          onShowHome={() => setCurrentView("home")}
-          onShowProfile={() => (user ? setCurrentView("profile") : setShowLogin(true))}
-          onShowSearch={() => setCurrentView("search")}
-          onNext={nextTrack}
-          onPrevious={previousTrack}
-        />
+      {rightPanelMode === "hidden" && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className="bg-black/80 backdrop-blur-md border border-gray-700 rounded-full p-2 flex flex-col items-center space-y-2 shadow-2xl">
+            {/* Expand Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleRightPanel}
+              className="text-gray-400 hover:text-white w-12 h-12 rounded-full hover:bg-gray-800"
+              title="Mostrar panel"
+            >
+              <PanelRightOpen className="w-4 h-4" />
+            </Button>
+
+            {currentSong && (
+              <>
+                {/* Play/Pause */}
+                <Button
+                  size="icon"
+                  onClick={togglePlay}
+                  className="bg-green-500 hover:bg-green-600 text-black w-12 h-12 rounded-full"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+
+                {/* Quick Controls */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={nextTrack}
+                  className="text-gray-400 hover:text-white w-12 h-12 rounded-full hover:bg-gray-800"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={previousTrack}
+                  className="text-gray-400 hover:text-white w-12 h-12 rounded-full hover:bg-gray-800"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-white w-12 h-12 rounded-full hover:bg-gray-800"
+                >
+                  <Heart className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Bottom Player Bar */}

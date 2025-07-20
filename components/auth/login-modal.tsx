@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Eye, EyeOff, Music, AlertCircle } from "lucide-react"
-import { signIn, ADMIN_CREDENTIALS, DEMO_CREDENTIALS } from "@/lib/auth"
 
 interface LoginModalProps {
   onClose: () => void
@@ -30,14 +29,23 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
     setError("")
 
     try {
-      const { data, error } = await signIn(email, password)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-      if (error) {
-        setError("Credenciales inválidas. Intenta con las cuentas demo.")
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Error al iniciar sesión')
         return
       }
 
-      if (data?.user) {
+      if (data.success && data.user) {
+        // The cookie is set automatically by the API
         onLogin()
       }
     } catch (err) {
@@ -47,21 +55,29 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
     }
   }
 
-  const handleDemoLogin = async (credentials: { email: string; password: string }) => {
-    setEmail(credentials.email)
-    setPassword(credentials.password)
+  const handleDemoLogin = async (email: string, password: string) => {
+    setEmail(email)
+    setPassword(password)
     setIsLoading(true)
     setError("")
 
     try {
-      const { data, error } = await signIn(credentials.email, credentials.password)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-      if (error) {
-        setError("Error con cuenta demo")
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || "Error con cuenta demo")
         return
       }
 
-      if (data?.user) {
+      if (data.success && data.user) {
         onLogin()
       }
     } catch (err) {
@@ -69,6 +85,23 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Demo credentials for testing
+  const DEMO_CREDENTIALS = {
+    free: {
+      email: "demo_free@auraradio.com",
+      password: "demo123"
+    },
+    premium: {
+      email: "demo_premium@auraradio.com", 
+      password: "demo123"
+    }
+  }
+
+  const ADMIN_CREDENTIALS = {
+    email: "admin@auraradio.com",
+    password: "admin123"
   }
 
   return (
@@ -147,7 +180,7 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
                 variant="outline"
                 size="sm"
                 className="w-full text-xs border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-transparent"
-                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.free)}
+                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.free.email, DEMO_CREDENTIALS.free.password)}
                 disabled={isLoading}
               >
                 Cuenta Gratuita: {DEMO_CREDENTIALS.free.email}
@@ -156,7 +189,7 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
                 variant="outline"
                 size="sm"
                 className="w-full text-xs border-yellow-500/50 text-yellow-300 hover:bg-yellow-500/20 bg-transparent"
-                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.premium)}
+                onClick={() => handleDemoLogin(DEMO_CREDENTIALS.premium.email, DEMO_CREDENTIALS.premium.password)}
                 disabled={isLoading}
               >
                 Cuenta Premium: {DEMO_CREDENTIALS.premium.email}
@@ -165,7 +198,7 @@ export function LoginModal({ onClose, onSwitchToRegister, onLogin }: LoginModalP
                 variant="outline"
                 size="sm"
                 className="w-full text-xs border-red-500/50 text-red-300 hover:bg-red-500/20 bg-transparent"
-                onClick={() => handleDemoLogin(ADMIN_CREDENTIALS)}
+                onClick={() => handleDemoLogin(ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password)}
                 disabled={isLoading}
               >
                 Admin: {ADMIN_CREDENTIALS.email}

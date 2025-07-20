@@ -14,11 +14,11 @@ export interface Profile {
   role: "admin" | "premium" | "free"
   subscription_plan: "free" | "premium" | "family"
   subscription_status: "active" | "cancelled" | "expired" | "pending"
-  subscription_expires_at?: string
+  play_count: number
   preferences: any
+  last_active: string
   created_at: string
   updated_at: string
-  deleted_at?: string
 }
 
 export interface Artist {
@@ -26,54 +26,83 @@ export interface Artist {
   name: string
   bio?: string
   image_url?: string
-  spotify_id?: string
-  apple_music_id?: string
-  metadata: any
   created_at: string
   updated_at: string
-  deleted_at?: string
-  created_by?: string
-  updated_by?: string
 }
 
-export interface Genre {
+export interface Album {
   id: string
-  name: string
-  description?: string
-  color?: string
+  title: string
+  artist_id?: string
+  release_date?: string
+  genre?: string
+  cover_url?: string
   created_at: string
   updated_at: string
-  deleted_at?: string
-  created_by?: string
-  updated_by?: string
+  artist?: Artist
 }
 
 export interface Song {
   id: string
   title: string
-  duration?: number
-  file_url?: string
-  file_size?: number
-  file_format?: string
-  compressed_url?: string
-  compressed_size?: number
-  status: "uploading" | "processing" | "ready" | "error"
-  play_count: number
-  metadata: any
+  artist_id?: string
+  album_id?: string
+  duration: number
+  genre?: string
+  url: string
+  cover_url?: string
   created_at: string
   updated_at: string
-  deleted_at?: string
-  created_by?: string
-  updated_by?: string
-  artists?: Artist[]
-  genres?: Genre[]
+  artist?: Artist
+  album?: Album
+}
+
+export interface Playlist {
+  id: string
+  user_id: string
+  title: string
+  description?: string
+  is_public: boolean
+  tracks_count: number
+  total_duration: number
+  cover_url?: string
+  created_at: string
+  updated_at: string
+  user?: Profile
+  playlist_tracks?: PlaylistTrack[]
+}
+
+export interface PlaylistTrack {
+  id: string
+  playlist_id: string
+  song_id: string
+  added_at: string
+  song?: Song
+  playlist?: Playlist
+}
+
+export interface Jam {
+  id: string
+  host_id: string
+  title?: string
+  description?: string
+  invite_code?: string
+  is_active: boolean
+  current_song_id?: string
+  created_at: string
+  updated_at: string
+  host?: Profile
+  current_song?: Song
 }
 
 export interface RadioStation {
   id: string
   name: string
-  description?: string
-  image_url?: string
+  stream_url: string
+  logo_url?: string
+  genre?: string
+  language?: string
+  country?: string
   is_ai_generated: boolean
   ai_prompt?: string
   is_active: boolean
@@ -81,10 +110,17 @@ export interface RadioStation {
   metadata: any
   created_at: string
   updated_at: string
-  deleted_at?: string
-  created_by?: string
-  updated_by?: string
   songs?: Song[]
+}
+
+export interface RadioStationSong {
+  id: string
+  radio_station_id: string
+  song_id: string
+  order_index: number
+  added_at: string
+  radio_station?: RadioStation
+  song?: Song
 }
 
 export interface Subscription {
@@ -92,16 +128,49 @@ export interface Subscription {
   user_id: string
   plan: "free" | "premium" | "family"
   status: "active" | "cancelled" | "expired" | "pending"
-  stripe_subscription_id?: string
-  stripe_customer_id?: string
-  current_period_start?: string
-  current_period_end?: string
-  cancel_at_period_end: boolean
-  cancelled_at?: string
+  started_at: string
+  expires_at?: string
+  renewed_at?: string
+  created_at: string
+  updated_at: string
+  user?: Profile
+}
+
+export interface UserPreferences {
+  id: string
+  user_id: string
+  preferences: any
+  created_at: string
+  updated_at: string
+  user?: Profile
+}
+
+export interface AIRadioJob {
+  id: string
+  user_id: string
+  prompt: string
+  status: "pending" | "processing" | "completed" | "failed"
+  radio_station_id?: string
+  error_message?: string
   metadata: any
   created_at: string
   updated_at: string
-  deleted_at?: string
+  user?: Profile
+  radio_station?: RadioStation
+}
+
+export interface WeeklyAIRadio {
+  id: string
+  user_id: string
+  week_start_date: string
+  theme: string
+  generated_at?: string
+  radio_station_id?: string
+  status: "pending" | "generating" | "completed" | "failed"
+  created_at: string
+  updated_at: string
+  user?: Profile
+  radio_station?: RadioStation
 }
 
 export interface GlobalEvent {

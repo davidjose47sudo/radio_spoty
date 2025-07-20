@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Music, AlertCircle, CheckCircle } from "lucide-react"
-import { signUp } from "@/lib/auth"
 
 interface RegisterModalProps {
   onClose: () => void
@@ -51,14 +50,26 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
     setIsLoading(true)
 
     try {
-      const { data, error } = await signUp(formData.email, formData.password, formData.name)
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password, 
+          fullName: formData.name 
+        }),
+      })
 
-      if (error) {
-        setError("Error al crear la cuenta. El email podría estar en uso.")
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || "Error al crear la cuenta. El email podría estar en uso.")
         return
       }
 
-      if (data?.user) {
+      if (data.success) {
         setSuccess(true)
         setTimeout(() => {
           onRegister()
@@ -173,7 +184,12 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
             </div>
 
             <div className="flex items-center space-x-2">
-              <Checkbox id="terms" checked={acceptTerms} onCheckedChange={setAcceptTerms} className="border-gray-600" />
+              <Checkbox
+                id="terms"
+                checked={acceptTerms}
+                onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                className="border-gray-600"
+              />
               <Label htmlFor="terms" className="text-sm text-gray-400">
                 Acepto los <span className="text-green-400 hover:underline cursor-pointer">Términos de Servicio</span> y
                 la <span className="text-green-400 hover:underline cursor-pointer">Política de Privacidad</span>
@@ -202,7 +218,7 @@ export function RegisterModal({ onClose, onSwitchToLogin, onRegister }: Register
             <p className="text-gray-400 mb-4">¿Ya tienes una cuenta?</p>
             <Button
               variant="outline"
-              className="w-full border-gray-600 text-white hover:bg-gray-800 bg-transparent"
+              className="w-full border-gray-600 text-black hover:bg-gray-800 bg-transparent"
               onClick={onSwitchToLogin}
             >
               Iniciar Sesión

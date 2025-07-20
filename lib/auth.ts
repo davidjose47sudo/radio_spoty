@@ -207,7 +207,7 @@ export async function incrementPlayCount(userId: string) {
     // Log the play event
     await logGlobalEvent({
       user_id: userId,
-      event_type: "music",
+      event_type: "play",
       action: "track_play",
       metadata: {},
     })
